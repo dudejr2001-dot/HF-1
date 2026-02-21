@@ -22,6 +22,7 @@ const CHANNEL_LABELS: Record<string, string> = {
   instagram: '인스타그램',
   blog: '네이버 블로그',
   tistory: '티스토리',
+  blind: '블라인드',
 };
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -31,6 +32,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   instagram: '#a78bfa',
   blog: '#fbbf24',
   tistory: '#fb923c',
+  blind: '#f472b6',
 };
 
 const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { channel: string; count: number } }> }) => {
