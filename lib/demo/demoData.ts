@@ -2,7 +2,6 @@
 import type { AnalyticsResult, RawDocument, AnalyzedDocument, Channel, Granularity, MentionDataPoint, SentimentDataPoint } from '../types';
 
 const KEYWORDS = ['한국주택금융공사', 'HF', '보금자리론', '주택연금', '전세자금보증', 'MBS'];
-const CHANNELS: Channel[] = ['news', 'youtube', 'dc'];
 
 const DEMO_TITLES = [
   { title: '한국주택금융공사, 보금자리론 금리 인하 결정', sentiment: 'positive' as const },
@@ -38,6 +37,39 @@ const YT_TITLES = [
   { title: '전세사기 예방법 - 전세자금보증 활용하기', sentiment: 'neutral' as const },
   { title: '한국주택금융공사 논란 총정리', sentiment: 'negative' as const },
   { title: 'MBS란 무엇인가? 주택시장과의 관계', sentiment: 'neutral' as const },
+];
+
+const BLOG_TITLES = [
+  { title: '[후기] 보금자리론으로 내집마련 성공했어요', sentiment: 'positive' as const },
+  { title: '주택연금 신청 과정 A to Z 정리', sentiment: 'neutral' as const },
+  { title: '전세자금보증 피해 사례 공유합니다', sentiment: 'negative' as const },
+  { title: 'HF 보금자리론 vs 시중은행 금리 비교 분석', sentiment: 'neutral' as const },
+  { title: '한국주택금융공사 MBS 투자해도 될까요?', sentiment: 'neutral' as const },
+  { title: '전세지킴보증 신청했는데 거절됐어요 이유 알고 싶어요', sentiment: 'negative' as const },
+];
+
+const TISTORY_TITLES = [
+  { title: '보금자리론 2024년 달라진 점 총정리', sentiment: 'neutral' as const },
+  { title: '주택연금 수령액 계산법 + 실제 사례', sentiment: 'positive' as const },
+  { title: 'HF 전세자금보증 한도와 조건 정리', sentiment: 'neutral' as const },
+  { title: '커버드본드가 뭔가요? 쉽게 설명해드립니다', sentiment: 'neutral' as const },
+  { title: '보금자리론 거절 사유 TOP 5', sentiment: 'negative' as const },
+];
+
+const BLIND_TITLES = [
+  { title: '한국주택금융공사 재직자인데 내부 분위기 ㄹㅇ', sentiment: 'neutral' as const },
+  { title: '주금공 직원이 말하는 보금자리론 심사 기준', sentiment: 'neutral' as const },
+  { title: 'HF 연봉/복지 실제로 어때요? 이직 고민 중', sentiment: 'neutral' as const },
+  { title: '전세사기 관련 HF 보증 이게 말이 되냐', sentiment: 'negative' as const },
+  { title: '주택금융공사 채용 정보 공유', sentiment: 'neutral' as const },
+];
+
+const IG_TITLES = [
+  { title: '#보금자리론 #내집마련 드디어 성공했어요! 너무 감사합니다 🏠', sentiment: 'positive' as const },
+  { title: '#주택연금 부모님께 신청해드렸는데 매달 받으세요 좋아하심', sentiment: 'positive' as const },
+  { title: '#전세사기 조심하세요 저처럼 피해보지 마세요 #HF보증', sentiment: 'negative' as const },
+  { title: '#한국주택금융공사 #MBS 요즘 금리 어떻게 되나요 ??', sentiment: 'neutral' as const },
+  { title: '#보금자리론 금리 너무 높아졌어요 😭 #주거비부담', sentiment: 'negative' as const },
 ];
 
 function randomBetween(min: number, max: number): number {
@@ -137,6 +169,98 @@ export function generateDemoDocuments(
     }
   }
 
+  // 네이버 블로그 docs
+  if (channels.includes('blog')) {
+    for (let i = 0; i < 20; i++) {
+      const kw = KEYWORDS[i % KEYWORDS.length];
+      if (!keywords.includes(kw)) continue;
+      const titleData = BLOG_TITLES[i % BLOG_TITLES.length];
+      docs.push({
+        id: `demo_blog_${i}`,
+        channel: 'blog',
+        keyword: kw,
+        title: titleData.title,
+        text: `${titleData.title}. 이 포스팅에서는 ${kw} 관련 경험과 정보를 공유합니다. 많은 분들에게 도움이 되길 바랍니다.`,
+        url: `https://blog.naver.com/demo_user/demo${i}`,
+        published_at: dates[idx++ % dates.length],
+        fetched_at: now,
+        source_meta: {
+          source: '네이버 블로그',
+          blogger_name: ['부동산러버', '금융고수', '내집마련꿈나무', '주택연금준비중'][i % 4],
+        },
+      });
+    }
+  }
+
+  // 티스토리 docs
+  if (channels.includes('tistory')) {
+    for (let i = 0; i < 15; i++) {
+      const kw = KEYWORDS[i % KEYWORDS.length];
+      if (!keywords.includes(kw)) continue;
+      const titleData = TISTORY_TITLES[i % TISTORY_TITLES.length];
+      docs.push({
+        id: `demo_tistory_${i}`,
+        channel: 'tistory',
+        keyword: kw,
+        title: titleData.title,
+        text: `${titleData.title}. 오늘은 ${kw}에 대해 자세히 알아보겠습니다. 최신 정보를 바탕으로 정리했습니다.`,
+        url: `https://demo-finance-blog.tistory.com/${i}`,
+        published_at: dates[idx++ % dates.length],
+        fetched_at: now,
+        source_meta: {
+          source: '티스토리',
+          blogger_name: ['금융정보창고', '부동산분석가', '재테크블로거'][i % 3],
+        },
+      });
+    }
+  }
+
+  // 블라인드 docs
+  if (channels.includes('blind')) {
+    for (let i = 0; i < 12; i++) {
+      const kw = KEYWORDS[i % KEYWORDS.length];
+      if (!keywords.includes(kw)) continue;
+      const titleData = BLIND_TITLES[i % BLIND_TITLES.length];
+      docs.push({
+        id: `demo_blind_${i}`,
+        channel: 'blind' as Channel,
+        keyword: kw,
+        title: titleData.title,
+        text: `${titleData.title}. 현직자/관련 종사자들의 솔직한 의견입니다.`,
+        url: `https://www.teamblind.com/kr/post/demo-${i}`,
+        published_at: dates[idx++ % dates.length],
+        fetched_at: now,
+        source_meta: {
+          source: '블라인드',
+          company: ['한국주택금융공사', '시중은행', '부동산업계'][i % 3],
+        },
+      });
+    }
+  }
+
+  // 인스타그램 docs
+  if (channels.includes('instagram')) {
+    for (let i = 0; i < 15; i++) {
+      const kw = KEYWORDS[i % KEYWORDS.length];
+      if (!keywords.includes(kw)) continue;
+      const titleData = IG_TITLES[i % IG_TITLES.length];
+      docs.push({
+        id: `demo_ig_${i}`,
+        channel: 'instagram',
+        keyword: kw,
+        title: titleData.title,
+        text: `${titleData.title} 내집마련의 꿈! ${kw} 관련 최신 이슈를 인스타그램에서 확인하세요.`,
+        url: `https://www.instagram.com/p/demo${i}/`,
+        published_at: dates[idx++ % dates.length],
+        fetched_at: now,
+        source_meta: {
+          source: '인스타그램',
+          like_count: randomBetween(10, 5000),
+        },
+      });
+    }
+  }
+
   return docs;
 }
 
@@ -205,20 +329,25 @@ export function generateDemoAnalytics(
     const spikeMultiplier = i === Math.floor(bucketCount / 2) ? 2.5 : 1;
     const base = randomBetween(10, 40);
     const total = Math.round(base * spikeMultiplier);
-    const newsCount = channels.includes('news') ? Math.round(total * 0.5) : 0;
-    const ytCount = channels.includes('youtube') ? Math.round(total * 0.2) : 0;
-    const dcCount = channels.includes('dc') ? Math.round(total * 0.3) : 0;
+    const newsCount  = channels.includes('news')      ? Math.round(total * 0.25) : 0;
+    const ytCount    = channels.includes('youtube')   ? Math.round(total * 0.12) : 0;
+    const dcCount    = channels.includes('dc')        ? Math.round(total * 0.18) : 0;
+    const blogCount  = channels.includes('blog')      ? Math.round(total * 0.18) : 0;
+    const tistCount  = channels.includes('tistory')   ? Math.round(total * 0.12) : 0;
+    const blindCount = channels.includes('blind')     ? Math.round(total * 0.08) : 0;
+    const igCount    = channels.includes('instagram') ? Math.round(total * 0.07) : 0;
 
     mentions.push({
       bucket,
       label,
-      total: newsCount + ytCount + dcCount,
+      total: newsCount + ytCount + dcCount + blogCount + tistCount + blindCount + igCount,
       news: newsCount,
       youtube: ytCount,
       dc: dcCount,
-      instagram: 0,
-      blog: 0,
-      tistory: 0,
+      instagram: igCount,
+      blog: blogCount,
+      tistory: tistCount,
+      blind: blindCount,
     });
 
     const neg = spikeMultiplier > 1 ? Math.round(total * 0.45) : Math.round(total * 0.2);
@@ -304,14 +433,22 @@ export function generateDemoAnalytics(
     negative_spikes: negativeSpikes,
     top_documents: topDocs,
     channel_stats: {
-      news: channels.includes('news') ? randomBetween(20, 40) : 0,
-      youtube: channels.includes('youtube') ? randomBetween(10, 20) : 0,
-      dc: channels.includes('dc') ? randomBetween(15, 30) : 0,
+      news:      channels.includes('news')      ? randomBetween(20, 40) : 0,
+      youtube:   channels.includes('youtube')   ? randomBetween(10, 20) : 0,
+      dc:        channels.includes('dc')        ? randomBetween(15, 30) : 0,
+      blog:      channels.includes('blog')      ? randomBetween(12, 25) : 0,
+      tistory:   channels.includes('tistory')   ? randomBetween(8, 18)  : 0,
+      blind:     channels.includes('blind')     ? randomBetween(5, 15)  : 0,
+      instagram: channels.includes('instagram') ? randomBetween(8, 20)  : 0,
     },
     collect_status: [
-      { channel: 'news', source: 'Google News RSS (데모)', status: 'success', count: 30 },
-      { channel: 'youtube', source: 'YouTube API (데모)', status: 'success', count: 15 },
-      { channel: 'dc', source: 'DCInside 부동산 갤러리 (데모)', status: 'success', count: 25 },
+      { channel: 'news'      as const, source: 'Google News RSS (데모)',          status: 'success' as const, count: 30 },
+      { channel: 'youtube'   as const, source: 'YouTube API (데모)',               status: 'success' as const, count: 15 },
+      { channel: 'dc'        as const, source: 'DCInside 갤러리 (데모)',            status: 'success' as const, count: 25 },
+      { channel: 'blog'      as const, source: '네이버 블로그 (데모)',               status: 'success' as const, count: 20 },
+      { channel: 'tistory'   as const, source: '티스토리 (데모)',                  status: 'success' as const, count: 15 },
+      { channel: 'blind'     as const, source: '블라인드 (데모)',                  status: 'partial' as const, count: 8  },
+      { channel: 'instagram' as const, source: '인스타그램 (데모, 뉴스RSS+크롤러)', status: 'success' as const, count: 12 },
     ],
   };
 }

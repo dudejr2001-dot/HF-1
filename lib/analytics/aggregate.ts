@@ -163,6 +163,7 @@ export function aggregateAnalytics(
       instagram: 0,
       blog: 0,
       tistory: 0,
+      blind: 0,
     });
   }
 

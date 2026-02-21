@@ -23,7 +23,7 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   endDate: new Date().toISOString().slice(0, 10),
   granularity: 'monthly',
   selectedKeywords: ['한국주택금융공사', 'HF', '보금자리론', '주택연금', '전세자금보증'],
-  selectedChannels: ['news', 'youtube', 'dc'],
+  selectedChannels: ['news', 'youtube', 'dc', 'blog', 'tistory', 'blind', 'instagram'],
   selectedGalleries: ['real_estate', 'finance', 'loan', 'policy'],
   analytics: null,
   aiResponse: null,

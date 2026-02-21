@@ -30,10 +30,14 @@ const ALL_KEYWORDS = [
   '건설자금보증', '전세지킴보증',
 ];
 
-const ALL_CHANNELS: { id: Channel; label: string; color: string }[] = [
-  { id: 'news', label: '📰 뉴스', color: 'blue' },
-  { id: 'youtube', label: '▶ YouTube', color: 'red' },
-  { id: 'dc', label: '💬 DC인사이드', color: 'green' },
+const ALL_CHANNELS: { id: Channel; label: string; color: string; note?: string }[] = [
+  { id: 'news',      label: '📰 뉴스',         color: 'blue' },
+  { id: 'youtube',   label: '▶ YouTube',      color: 'red'  },
+  { id: 'blog',      label: '📝 네이버 블로그', color: 'green' },
+  { id: 'tistory',   label: '🍊 티스토리',      color: 'blue' },
+  { id: 'dc',        label: '💬 DC인사이드',    color: 'green' },
+  { id: 'blind',     label: '🙈 블라인드',      color: 'blue', note: '크롤러' },
+  { id: 'instagram', label: '📸 인스타그램',    color: 'blue', note: 'RSS+크롤러' },
 ];
 
 const ALL_GALLERIES = [
@@ -219,10 +223,10 @@ export function ControlPanel({
             📡 채널
           </label>
           <div className="space-y-1.5">
-            {ALL_CHANNELS.map(({ id, label, color }) => (
+            {ALL_CHANNELS.map(({ id, label, color, note }) => (
               <ToggleChip
                 key={id}
-                label={`${label}${id === 'youtube' && !hasYouTubeKey ? ' (API 키 필요)' : ''}`}
+                label={`${label}${id === 'youtube' && !hasYouTubeKey ? ' (API키 필요)' : note ? ` (${note})` : ''}`}
                 active={selectedChannels.includes(id)}
                 onClick={() => toggleChannel(id)}
                 color={color}

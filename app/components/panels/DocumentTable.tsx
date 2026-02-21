@@ -14,6 +14,7 @@ const CHANNEL_LABELS: Record<string, string> = {
   instagram: 'IG',
   blog: '블로그',
   tistory: '티스토리',
+  blind: '블라인드',
 };
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -23,6 +24,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   instagram: 'bg-purple-900 text-purple-300',
   blog: 'bg-yellow-900 text-yellow-300',
   tistory: 'bg-orange-900 text-orange-300',
+  blind: 'bg-pink-900 text-pink-300',
 };
 
 const SENTIMENT_COLORS: Record<string, string> = {

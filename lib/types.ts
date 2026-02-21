@@ -1,5 +1,5 @@
 // lib/types.ts
-export type Channel = 'news' | 'youtube' | 'dc' | 'instagram' | 'blog' | 'tistory';
+export type Channel = 'news' | 'youtube' | 'dc' | 'instagram' | 'blog' | 'tistory' | 'blind';
 export type Granularity = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
@@ -51,6 +51,7 @@ export interface MentionDataPoint {
   instagram: number;
   blog: number;
   tistory: number;
+  blind: number;
 }
 
 export interface SentimentDataPoint {
@@ -109,6 +110,7 @@ export interface AnalyticsResult {
   top_documents: AnalyzedDocument[];
   channel_stats: Record<string, number>;
   collect_status: CollectStatus[];
+  from_cache?: boolean;
 }
 
 export interface CollectStatus {
