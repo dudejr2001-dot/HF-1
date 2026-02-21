@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+:root {
+  --navy-950: #020b18;
+  --navy-900: #0b1f3b;
+  --navy-800: #112d54;
+  --navy-700: #1a3d6d;
+  --navy-600: #1d4ed8;
+  --navy-500: #2563eb;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+html, body { height: 100%; overflow: hidden; }
+
+/* Selection */
+::selection { background: #1d4ed8; color: white; }
+
+/* Transition defaults */
+*, *::before, *::after { transition-property: color, background-color, border-color, box-shadow; transition-duration: 150ms; }
+
+/* Remove default transition from animated elements */
+.animate-spin, .animate-pulse { transition: none; }
