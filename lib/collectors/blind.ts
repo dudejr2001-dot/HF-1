@@ -62,7 +62,7 @@ async function crawlBlind(
   };
 
   try {
-    await delay(2000);
+    await delay(1000);
     const res = await axios.get(searchUrl, { headers, timeout: 15000 });
     const $ = cheerio.load(res.data as string);
 
@@ -166,9 +166,15 @@ export async function collectBlind(
   const documents: RawDocument[] = [];
   const statuses: CollectStatus[] = [];
   const fetchedAt = new Date().toISOString();
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
+
+  // 블라인드 크롤러: 최근 게시물만 제공 → 요청 기간이 30일 이상 이전이면 최근 30일로 확장
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const rawStart = new Date(startDate);
+  const rawEnd = new Date(endDate);
+  rawEnd.setHours(23, 59, 59, 999);
+  const start = rawStart < thirtyDaysAgo ? thirtyDaysAgo : rawStart;
+  const end = rawEnd > now ? now : rawEnd;
 
   for (const keyword of keywords) {
     try {

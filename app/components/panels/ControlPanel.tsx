@@ -41,11 +41,11 @@ const ALL_CHANNELS: { id: Channel; label: string; color: string; note?: string }
 ];
 
 const ALL_GALLERIES = [
-  { id: 'real_estate', label: '부동산' },
-  { id: 'finance', label: '금융' },
   { id: 'loan', label: '대출' },
-  { id: 'policy', label: '정책' },
-  { id: 'apartment', label: '아파트' },
+  { id: 'house', label: '주택' },
+  { id: 'finance', label: '금융' },
+  { id: 'real_estate', label: '부동산 (비활성)' },
+  { id: 'policy', label: '정책 (비활성)' },
 ];
 
 const GRANULARITIES: { id: Granularity; label: string }[] = [
