@@ -105,7 +105,7 @@ async function collectViaDaumCrawler(
     const url = `https://search.daum.net/search?w=blog&q=${encodeURIComponent(keyword)}&page=${page}&DA=TBS`;
 
     try {
-      await delay(1500);
+      await delay(800);
       const res = await axios.get(url, {
         headers: { 'User-Agent': UA, 'Accept-Language': 'ko-KR,ko;q=0.9' },
         timeout: 10000,
@@ -180,7 +180,7 @@ async function collectViaNaver(
     const start = (page - 1) * 10 + 1;
     const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword + ' site:tistory.com')}&start=${start}`;
     try {
-      await delay(1200);
+      await delay(800);
       const res = await axios.get(url, {
         headers: { 'User-Agent': UA, 'Accept-Language': 'ko-KR,ko;q=0.9' },
         timeout: 10000,
@@ -231,9 +231,16 @@ export async function collectTistory(
   const documents: RawDocument[] = [];
   const statuses: CollectStatus[] = [];
   const fetchedAt = new Date().toISOString();
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
+
+  // 티스토리 크롤러는 최근 게시물만 제공 → 요청 기간이 90일 이상 이전이면 최근 90일로 확장
+  const now = new Date();
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const rawStart = new Date(startDate);
+  const rawEnd = new Date(endDate);
+  rawEnd.setHours(23, 59, 59, 999);
+
+  const start = rawStart < ninetyDaysAgo ? ninetyDaysAgo : rawStart;
+  const end = rawEnd > now ? now : rawEnd;
 
   const kakaoKey = process.env.KAKAO_REST_API_KEY ?? '';
 

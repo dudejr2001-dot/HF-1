@@ -41,11 +41,11 @@ const ALL_CHANNELS: { id: Channel; label: string; color: string; note?: string }
 ];
 
 const ALL_GALLERIES = [
-  { id: 'real_estate', label: '부동산' },
-  { id: 'finance', label: '금융' },
   { id: 'loan', label: '대출' },
-  { id: 'policy', label: '정책' },
-  { id: 'apartment', label: '아파트' },
+  { id: 'house', label: '주택' },
+  { id: 'finance', label: '금융' },
+  { id: 'real_estate', label: '부동산 (비활성)' },
+  { id: 'policy', label: '정책 (비활성)' },
 ];
 
 const GRANULARITIES: { id: Granularity; label: string }[] = [
@@ -287,6 +287,25 @@ export function ControlPanel({
           >
             🎭 데모 데이터로 보기
           </button>
+        </div>
+
+        {/* Manual Download Buttons */}
+        <div className="space-y-2 pt-2 border-t border-slate-700/50">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">📄 문서 다운로드</p>
+          <a
+            href="/api/download/manual?type=executive"
+            download
+            className="w-full py-2 px-4 bg-amber-700/80 hover:bg-amber-600/80 text-white font-medium text-xs rounded-xl transition-colors border border-amber-600/50 flex items-center justify-center gap-1.5"
+          >
+            🏢 임원 보고용 1페이지 (.docx)
+          </a>
+          <a
+            href="/api/download/manual?type=full"
+            download
+            className="w-full py-2 px-4 bg-teal-800/70 hover:bg-teal-700/70 text-teal-200 font-medium text-xs rounded-xl transition-colors border border-teal-700/50 flex items-center justify-center gap-1.5"
+          >
+            📘 전체 활용 매뉴얼 (.docx)
+          </a>
         </div>
 
         {/* API Status */}

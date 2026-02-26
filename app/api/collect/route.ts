@@ -15,17 +15,58 @@ import {
 } from '@/lib/cache';
 import type { Channel, Granularity, RawDocument, CollectStatus } from '@/lib/types';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
+
+/** 날짜를 YYYY-MM-DD 형식으로 반환 */
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** 날짜 범위 유효성 검사 및 보정
+ *  - 미래 날짜 → 오늘로 보정
+ *  - end < start → 스왑
+ */
+function normalizeDateRange(rawStart: string, rawEnd: string): { startDate: string; endDate: string; adjusted: boolean } {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
+  let s = new Date(rawStart);
+  let e = new Date(rawEnd);
+  let adjusted = false;
+
+  // 미래 날짜는 오늘로 보정
+  if (e > today) { e = today; adjusted = true; }
+  if (s > today) { s = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000); adjusted = true; }
+
+  // end가 start보다 이른 경우 스왑
+  if (e < s) { const tmp = s; s = e; e = tmp; adjusted = true; }
+
+  return {
+    startDate: toDateStr(s),
+    endDate: toDateStr(e),
+    adjusted,
+  };
+}
+
+/** 타임아웃 래퍼: ms 후 reject */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} 수집 타임아웃 (${ms / 1000}초 초과)`)), ms)
+    ),
+  ]);
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      startDate,
-      endDate,
-      granularity = 'monthly',
+      startDate: rawStart,
+      endDate: rawEnd,
+      granularity = 'weekly',
       keywords = [],
-      channels = ['news', 'youtube', 'dc'],
+      channels = ['news', 'dc'],
       galleryIds = ['real_estate', 'finance', 'loan', 'policy'],
       forceRefresh = false,
     } = body as {
@@ -38,12 +79,15 @@ export async function POST(req: NextRequest) {
       forceRefresh: boolean;
     };
 
-    if (!startDate || !endDate) {
+    if (!rawStart || !rawEnd) {
       return NextResponse.json(
         { error: 'startDate and endDate are required' },
         { status: 400 }
       );
     }
+
+    // 날짜 보정
+    const { startDate, endDate } = normalizeDateRange(rawStart, rawEnd);
 
     const cacheKey = getAnalyticsCacheKey(startDate, endDate, granularity, keywords, channels);
 
@@ -55,91 +99,108 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const ytApiKey = process.env.YOUTUBE_API_KEY;
+
+    // ── 채널별 수집 태스크 정의 (병렬 실행) ──────────────────
+    type CollectResult = { documents: RawDocument[]; statuses: CollectStatus[] };
+
+    const tasks: Array<{ channel: Channel; fn: () => Promise<CollectResult> }> = [];
+
+    if (channels.includes('news')) {
+      tasks.push({
+        channel: 'news',
+        fn: () => withTimeout(collectNews(keywords, startDate, endDate), 25000, '뉴스'),
+      });
+    }
+
+    if (channels.includes('youtube')) {
+      if (ytApiKey) {
+        tasks.push({
+          channel: 'youtube',
+          fn: () => withTimeout(collectYouTube(keywords, startDate, endDate, ytApiKey), 25000, 'YouTube'),
+        });
+      }
+    }
+
+    if (channels.includes('dc')) {
+      tasks.push({
+        channel: 'dc',
+        fn: () => withTimeout(collectDC(keywords, startDate, endDate, galleryIds), 80000, 'DC인사이드'),
+      });
+    }
+
+    if (channels.includes('blog')) {
+      tasks.push({
+        channel: 'blog',
+        fn: () => withTimeout(collectNaverBlog(keywords, startDate, endDate), 40000, '네이버 블로그'),
+      });
+    }
+
+    if (channels.includes('tistory')) {
+      tasks.push({
+        channel: 'tistory',
+        fn: () => withTimeout(collectTistory(keywords, startDate, endDate), 50000, '티스토리'),
+      });
+    }
+
+    if (channels.includes('blind')) {
+      tasks.push({
+        channel: 'blind',
+        fn: () => withTimeout(collectBlind(keywords, startDate, endDate), 20000, '블라인드'),
+      });
+    }
+
+    if (channels.includes('instagram')) {
+      tasks.push({
+        channel: 'instagram',
+        fn: () => withTimeout(collectInstagram(keywords, startDate, endDate), 20000, '인스타그램'),
+      });
+    }
+
+    // ── 병렬 수집 실행 ────────────────────────────────────────
+    // YouTube는 별도 처리 (API 키 없으면 스킵)
+    const ytSkipped = channels.includes('youtube') && !ytApiKey;
+
+    const results = await Promise.allSettled(tasks.map(t => t.fn()));
+
     const allDocuments: RawDocument[] = [];
     const allStatuses: CollectStatus[] = [];
 
-    const ytApiKey = process.env.YOUTUBE_API_KEY;
-
-    // ── 뉴스 ──────────────────────────────────────────────
-    if (channels.includes('news')) {
-      try {
-        const { documents, statuses } = await collectNews(keywords, startDate, endDate);
-        allDocuments.push(...documents);
-        allStatuses.push(...statuses);
-      } catch (err) {
-        allStatuses.push({ channel: 'news', source: 'Google News RSS', status: 'failed', count: 0, error: String(err) });
-      }
+    // YouTube API 키 없을 때 skipped 상태 추가
+    if (ytSkipped) {
+      allStatuses.push({
+        channel: 'youtube',
+        source: 'YouTube Data API',
+        status: 'skipped',
+        count: 0,
+        error: 'YOUTUBE_API_KEY 미설정 — 환경변수 설정 후 사용 가능',
+      });
     }
 
-    // ── YouTube ───────────────────────────────────────────
-    if (channels.includes('youtube')) {
-      if (ytApiKey) {
-        try {
-          const { documents, statuses } = await collectYouTube(keywords, startDate, endDate, ytApiKey);
-          allDocuments.push(...documents);
-          allStatuses.push(...statuses);
-        } catch (err) {
-          allStatuses.push({ channel: 'youtube', source: 'YouTube Data API', status: 'failed', count: 0, error: String(err) });
-        }
+    results.forEach((result, i) => {
+      const task = tasks[i];
+      if (result.status === 'fulfilled') {
+        allDocuments.push(...result.value.documents);
+        allStatuses.push(...result.value.statuses);
       } else {
-        allStatuses.push({ channel: 'youtube', source: 'YouTube Data API', status: 'skipped', count: 0, error: 'YOUTUBE_API_KEY 미설정' });
+        // 타임아웃 또는 에러 처리
+        const errMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        allStatuses.push({
+          channel: task.channel,
+          source: task.channel,
+          status: 'failed',
+          count: 0,
+          error: errMsg,
+        });
       }
-    }
+    });
 
-    // ── DC인사이드 ────────────────────────────────────────
-    if (channels.includes('dc')) {
-      try {
-        const { documents, statuses } = await collectDC(keywords, startDate, endDate, galleryIds);
-        allDocuments.push(...documents);
-        allStatuses.push(...statuses);
-      } catch (err) {
-        allStatuses.push({ channel: 'dc', source: 'DCInside 갤러리', status: 'failed', count: 0, error: String(err) });
-      }
-    }
-
-    // ── 네이버 블로그 ─────────────────────────────────────
-    if (channels.includes('blog')) {
-      try {
-        const { documents, statuses } = await collectNaverBlog(keywords, startDate, endDate);
-        allDocuments.push(...documents);
-        allStatuses.push(...statuses);
-      } catch (err) {
-        allStatuses.push({ channel: 'blog', source: '네이버 블로그', status: 'failed', count: 0, error: String(err) });
-      }
-    }
-
-    // ── 티스토리 ──────────────────────────────────────────
-    if (channels.includes('tistory')) {
-      try {
-        const { documents, statuses } = await collectTistory(keywords, startDate, endDate);
-        allDocuments.push(...documents);
-        allStatuses.push(...statuses);
-      } catch (err) {
-        allStatuses.push({ channel: 'tistory', source: '티스토리', status: 'failed', count: 0, error: String(err) });
-      }
-    }
-
-    // ── 블라인드 ──────────────────────────────────────────
-    if (channels.includes('blind')) {
-      try {
-        const { documents, statuses } = await collectBlind(keywords, startDate, endDate);
-        allDocuments.push(...documents);
-        allStatuses.push(...statuses);
-      } catch (err) {
-        allStatuses.push({ channel: 'blind', source: '블라인드', status: 'failed', count: 0, error: String(err) });
-      }
-    }
-
-    // ── 인스타그램 ────────────────────────────────────────
-    if (channels.includes('instagram')) {
-      try {
-        const { documents, statuses } = await collectInstagram(keywords, startDate, endDate);
-        allDocuments.push(...documents);
-        allStatuses.push(...statuses);
-      } catch (err) {
-        allStatuses.push({ channel: 'instagram', source: '인스타그램', status: 'failed', count: 0, error: String(err) });
-      }
-    }
+    // ── 수집 결과 요약 로그 ────────────────────────────────
+    const totalCollected = allDocuments.length;
+    const channelSummary = allStatuses
+      .map(s => `${s.channel}:${s.count}(${s.status})`)
+      .join(', ');
+    console.log(`[Collect] ${startDate}~${endDate} | 총 ${totalCollected}건 | ${channelSummary}`);
 
     // ── 분석 집계 ─────────────────────────────────────────
     const analytics = aggregateAnalytics(

@@ -27,123 +27,131 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parseKoreanDate(dateStr: string): Date | null {
+function parseDCDate(dateStr: string): Date | null {
   if (!dateStr) return null;
   const cleaned = dateStr.trim();
 
-  // Format: "2024.01.15 12:30:00" or "2024.01.15"
-  const fullMatch = cleaned.match(/(\d{4})\.(\d{2})\.(\d{2})\s*(\d{2}):(\d{2})/);
+  // "2026.02.16" or "26/02/16" or "21.02.02"
+  const fullMatch = cleaned.match(/(\d{4})\.(\d{2})\.(\d{2})/);
   if (fullMatch) {
-    return new Date(
-      `${fullMatch[1]}-${fullMatch[2]}-${fullMatch[3]}T${fullMatch[4]}:${fullMatch[5]}:00+09:00`
-    );
+    return new Date(`${fullMatch[1]}-${fullMatch[2]}-${fullMatch[3]}T12:00:00+09:00`);
   }
 
-  const dateMatch = cleaned.match(/(\d{4})\.(\d{2})\.(\d{2})/);
-  if (dateMatch) {
-    return new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}T12:00:00+09:00`);
+  // "26/02/16" → 2026-02-16
+  const shortSlash = cleaned.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+  if (shortSlash) {
+    return new Date(`20${shortSlash[1]}-${shortSlash[2]}-${shortSlash[3]}T12:00:00+09:00`);
   }
 
-  // Format: "01.15" (current year)
-  const shortMatch = cleaned.match(/^(\d{2})\.(\d{2})$/);
-  if (shortMatch) {
-    const year = new Date().getFullYear();
-    return new Date(`${year}-${shortMatch[1]}-${shortMatch[2]}T12:00:00+09:00`);
+  // "21.02.02" → 2021-02-02 or 2026-02-02?
+  const dotShort = cleaned.match(/^(\d{2})\.(\d{2})\.(\d{2})$/);
+  if (dotShort) {
+    const year = parseInt(dotShort[1]) > 50 ? `19${dotShort[1]}` : `20${dotShort[1]}`;
+    return new Date(`${year}-${dotShort[2]}-${dotShort[3]}T12:00:00+09:00`);
   }
 
-  // Format: "12:30" (today)
-  const timeMatch = cleaned.match(/^(\d{2}):(\d{2})$/);
-  if (timeMatch) {
+  // "2024.01.15 12:30"
+  const withTime = cleaned.match(/(\d{4})\.(\d{2})\.(\d{2})\s*(\d{2}):(\d{2})/);
+  if (withTime) {
+    return new Date(`${withTime[1]}-${withTime[2]}-${withTime[3]}T${withTime[4]}:${withTime[5]}:00+09:00`);
+  }
+
+  // "12:30" (today)
+  const timeOnly = cleaned.match(/^(\d{2}):(\d{2})$/);
+  if (timeOnly) {
     const now = new Date();
-    const d = new Date();
-    d.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
-    return d;
+    now.setHours(parseInt(timeOnly[1]), parseInt(timeOnly[2]), 0, 0);
+    return now;
   }
 
   return null;
 }
 
-async function fetchGalleryPage(
+async function fetchGallerySearchPage(
   gallery: DCGallery,
   keyword: string,
   page: number,
-  settings: typeof dcGalleriesConfig.settings
-): Promise<{ items: Array<{ title: string; url: string; date: string; excerpt: string }>; success: boolean }> {
-  const searchUrl = gallery.search_url
-    .replace('{keyword}', encodeURIComponent(keyword))
-    + `&page=${page}`;
+  settings: typeof dcGalleriesConfig.settings,
+  startDate: Date,
+  endDate: Date,
+  fetchedAt: string
+): Promise<{ docs: RawDocument[]; reachedBoundary: boolean; success: boolean }> {
+  const searchUrl = `https://gall.dcinside.com/board/lists/?id=${gallery.gallery_id}&s_type=search_subject_memo&s_keyword=${encodeURIComponent(keyword)}&page=${page}`;
 
   try {
     await delay(settings.request_delay_ms);
 
     const response = await axios.get(searchUrl, {
-      timeout: 10000,
+      timeout: 12000,
       headers: {
         'User-Agent': settings.user_agent,
-        'Referer': 'https://gall.dcinside.com',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+        'Referer': `https://gall.dcinside.com/board/lists/?id=${gallery.gallery_id}`,
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
       },
     });
 
     const $ = cheerio.load(response.data as string);
-    const items: Array<{ title: string; url: string; date: string; excerpt: string }> = [];
+    const docs: RawDocument[] = [];
+    let reachedBoundary = false;
 
-    // DCInside gallery list table rows
-    $('tr.ub-content, .gall_list tbody tr').each((_, row) => {
+    // DC인사이드 갤러리 게시물 목록: tbody tr > td.gall_tit, td.gall_date
+    $('tbody tr').each((_, row) => {
       const $row = $(row);
 
-      // Skip notice/banner rows
-      if ($row.hasClass('notice') || $row.hasClass('gall_notice')) return;
+      // 광고/공지 제외 (클래스 확인)
+      const rowClass = $row.attr('class') || '';
+      if (rowClass.includes('notice') || rowClass.includes('ad')) return;
 
-      const titleEl = $row.find('.gall_tit a:not(.reply_numbox), td.gall_tit a').first();
-      const dateEl = $row.find('.gall_date, td.gall_date').first();
-
+      // 제목 추출 (.gall_tit a)
+      const titleEl = $row.find('.gall_tit a').first();
       const title = titleEl.text().trim();
-      const href = titleEl.attr('href') || '';
-      const date = dateEl.attr('title') || dateEl.text().trim();
-      const excerpt = $row.find('.ub-content, .gall_content').text().trim();
+      if (!title || title.length < 2) return;
 
-      if (!title || !href) return;
+      // 광고 URL 제외
+      let href = titleEl.attr('href') || '';
+      if (href.includes('addc.dcinside.com') || href.startsWith('javascript')) return;
 
-      const fullUrl = href.startsWith('http')
-        ? href
-        : `https://gall.dcinside.com${href}`;
+      if (href && !href.startsWith('http')) {
+        href = `https://gall.dcinside.com${href}`;
+      }
 
-      items.push({ title, url: fullUrl, date, excerpt });
+      // 날짜 추출
+      const dateEl = $row.find('.gall_date, td.gall_date').first();
+      const dateStr = dateEl.attr('title') || dateEl.text().trim();
+      const pubDate = parseDCDate(dateStr);
+
+      if (!pubDate) return;
+
+      // 날짜 범위 체크
+      if (pubDate < startDate) {
+        reachedBoundary = true;
+        return false; // break each
+      }
+      if (pubDate > endDate) return;
+
+      docs.push({
+        id: generateId(`dc_${gallery.gallery_id}_${keyword}_${href}_${dateStr}`),
+        channel: 'dc',
+        keyword,
+        title,
+        text: title, // DC는 목록에서 본문 미제공, 제목으로 대체
+        url: href,
+        published_at: pubDate.toISOString(),
+        fetched_at: fetchedAt,
+        source_meta: {
+          source: `DC인사이드 ${gallery.name}갤러리`,
+          gallery_name: gallery.name,
+          gallery_id: gallery.gallery_id,
+        },
+      });
     });
 
-    return { items, success: true };
-  } catch {
-    return { items: [], success: false };
-  }
-}
-
-async function fetchPostDetail(
-  url: string,
-  settings: typeof dcGalleriesConfig.settings
-): Promise<{ body: string; commentCount: number } | null> {
-  try {
-    await delay(settings.request_delay_ms / 2);
-
-    const response = await axios.get(url, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': settings.user_agent,
-        'Referer': 'https://gall.dcinside.com',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'ko-KR,ko;q=0.9',
-      },
-    });
-
-    const $ = cheerio.load(response.data as string);
-    const body = $('.write_div, .s_write div').text().trim().slice(0, 2000);
-    const commentCountText = $('.cmt_title_num, .gall_comment_count').first().text().trim();
-    const commentCount = parseInt(commentCountText.replace(/[^\d]/g, '')) || 0;
-
-    return { body, commentCount };
-  } catch {
-    return null;
+    return { docs, reachedBoundary, success: true };
+  } catch (err) {
+    return { docs: [], reachedBoundary: false, success: false };
   }
 }
 
@@ -156,93 +164,69 @@ export async function collectDC(
   const documents: RawDocument[] = [];
   const statuses: CollectStatus[] = [];
   const fetchedAt = new Date().toISOString();
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
 
-  const { settings } = dcGalleriesConfig;
-  const galleries = (dcGalleriesConfig.galleries as DCGallery[]).filter(
-    (g) => g.enabled && galleryIds.includes(g.id)
+  // DC 크롤러는 최근 게시물만 제공 → 요청 기간이 30일 이상 이전이면 최근 30일로 확장
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const rawStart = new Date(startDate);
+  const rawEnd = new Date(endDate);
+  rawEnd.setHours(23, 59, 59, 999);
+
+  const start = rawStart < thirtyDaysAgo ? thirtyDaysAgo : rawStart;
+  const end = rawEnd > now ? now : rawEnd;
+
+  const settings = dcGalleriesConfig.settings;
+
+  // 활성화된 갤러리 중 선택된 것만
+  const enabledGalleries = (dcGalleriesConfig.galleries as DCGallery[]).filter(
+    (g) => g.enabled && (galleryIds.length === 0 || galleryIds.includes(g.id))
   );
 
-  for (const gallery of galleries) {
-    for (const keyword of keywords) {
-      let totalCount = 0;
-      let failed = false;
-      let pagesFetched = 0;
-      let reachedBoundary = false;
+  // 활성 갤러리가 없으면 기본으로 loan + house 사용
+  const targetGalleries = enabledGalleries.length > 0
+    ? enabledGalleries
+    : (dcGalleriesConfig.galleries as DCGallery[]).filter(g => ['loan', 'house'].includes(g.id));
+
+  for (const keyword of keywords) {
+    let keywordTotal = 0;
+    let keywordFailed = 0;
+
+    for (const gallery of targetGalleries) {
+      let galleryDocs: RawDocument[] = [];
 
       for (let page = 1; page <= settings.max_pages_per_gallery; page++) {
-        if (totalCount >= settings.max_posts_per_gallery) break;
-        if (reachedBoundary) break;
-
-        const { items, success } = await fetchGalleryPage(gallery, keyword, page, settings);
+        const { docs, reachedBoundary, success } = await fetchGallerySearchPage(
+          gallery,
+          keyword,
+          page,
+          settings,
+          start,
+          end,
+          fetchedAt
+        );
 
         if (!success) {
-          failed = true;
+          keywordFailed++;
           break;
         }
 
-        if (items.length === 0) break;
-
-        pagesFetched++;
-
-        for (const item of items) {
-          if (totalCount >= settings.max_posts_per_gallery) break;
-
-          const parsedDate = parseKoreanDate(item.date);
-          if (!parsedDate) continue;
-
-          // If post is older than start, stop collecting
-          if (parsedDate < start) {
-            reachedBoundary = true;
-            break;
-          }
-
-          if (parsedDate > end) continue;
-
-          // Optionally fetch post detail (limit to avoid too many requests)
-          let body = item.excerpt;
-          let commentCount = 0;
-
-          if (totalCount < 10 && item.url) {
-            const detail = await fetchPostDetail(item.url, settings);
-            if (detail) {
-              body = detail.body || body;
-              commentCount = detail.commentCount;
-            }
-          }
-
-          const doc: RawDocument = {
-            id: generateId(`dc_${gallery.id}_${keyword}_${item.url}_${parsedDate.getTime()}`),
-            channel: 'dc',
-            keyword,
-            title: item.title,
-            text: body || item.title,
-            url: item.url,
-            published_at: parsedDate.toISOString(),
-            fetched_at: fetchedAt,
-            source_meta: {
-              gallery_name: gallery.name,
-              gallery_id: gallery.gallery_id,
-              comment_count: commentCount,
-            },
-          };
-
-          documents.push(doc);
-          totalCount++;
-        }
+        galleryDocs.push(...docs);
+        if (reachedBoundary || docs.length === 0) break;
+        if (galleryDocs.length >= settings.max_posts_per_gallery) break;
       }
 
-      statuses.push({
-        channel: 'dc',
-        source: `DCInside: ${gallery.name} (${keyword})`,
-        keyword,
-        status: failed ? 'failed' : totalCount > 0 ? 'success' : 'partial',
-        count: totalCount,
-        error: failed ? 'Parser failed or network error' : undefined,
-      });
+      documents.push(...galleryDocs);
+      keywordTotal += galleryDocs.length;
     }
+
+    statuses.push({
+      channel: 'dc',
+      source: `DC인사이드 [${keyword}] (${targetGalleries.map(g => g.name).join(', ')} 갤러리)`,
+      keyword,
+      status: keywordTotal > 0 ? 'success' : (keywordFailed > 0 ? 'failed' : 'partial'),
+      count: keywordTotal,
+      error: keywordTotal === 0 ? `해당 기간(${startDate}~${endDate}) 내 게시물 없음 또는 갤러리 접근 실패` : undefined,
+    });
   }
 
   return { documents, statuses };

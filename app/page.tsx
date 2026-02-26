@@ -61,10 +61,15 @@ export default function Dashboard() {
     store.setError(null);
     store.setDemo(false);
 
+    // 110초 타임아웃 (서버 maxDuration 120초보다 약간 짧게)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 110000);
+
     try {
       const res = await fetch('/api/collect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           startDate: store.startDate,
           endDate: store.endDate,
@@ -85,8 +90,13 @@ export default function Dashboard() {
       store.setAnalytics(data);
       store.setCollectStatuses(data.collect_status || []);
     } catch (err) {
-      store.setError(err instanceof Error ? err.message : '수집 중 오류가 발생했습니다.');
+      if (err instanceof Error && err.name === 'AbortError') {
+        store.setError('수집 시간이 초과되었습니다 (110초). 채널 수를 줄이거나 키워드를 줄여서 다시 시도하세요.');
+      } else {
+        store.setError(err instanceof Error ? err.message : '수집 중 오류가 발생했습니다.');
+      }
     } finally {
+      clearTimeout(timeoutId);
       store.setLoading(false);
     }
   }, [store]);
@@ -242,7 +252,7 @@ export default function Dashboard() {
             {store.isLoading && (
               <div className="flex items-center gap-1.5 text-xs text-blue-400">
                 <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                수집 중...
+                수집 중... (최대 110초 소요)
               </div>
             )}
           </div>

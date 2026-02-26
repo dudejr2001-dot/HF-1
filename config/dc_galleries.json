@@ -1,11 +1,19 @@
 {
   "galleries": [
     {
-      "id": "real_estate",
-      "name": "부동산",
-      "gallery_id": "realestate",
-      "url": "https://gall.dcinside.com/board/lists/?id=realestate",
-      "search_url": "https://gall.dcinside.com/board/lists/?id=realestate&s_type=search_subject_memo&s_keyword={keyword}",
+      "id": "loan",
+      "name": "대출",
+      "gallery_id": "loan",
+      "url": "https://gall.dcinside.com/board/lists/?id=loan",
+      "search_url": "https://gall.dcinside.com/board/lists/?id=loan&s_type=search_subject_memo&s_keyword={keyword}",
+      "enabled": true
+    },
+    {
+      "id": "house",
+      "name": "주택",
+      "gallery_id": "house",
+      "url": "https://gall.dcinside.com/board/lists/?id=house",
+      "search_url": "https://gall.dcinside.com/board/lists/?id=house&s_type=search_subject_memo&s_keyword={keyword}",
       "enabled": true
     },
     {
@@ -17,12 +25,12 @@
       "enabled": true
     },
     {
-      "id": "loan",
-      "name": "대출",
-      "gallery_id": "loan",
-      "url": "https://gall.dcinside.com/board/lists/?id=loan",
-      "search_url": "https://gall.dcinside.com/board/lists/?id=loan&s_type=search_subject_memo&s_keyword={keyword}",
-      "enabled": true
+      "id": "real_estate",
+      "name": "부동산",
+      "gallery_id": "realestate",
+      "url": "https://gall.dcinside.com/board/lists/?id=realestate",
+      "search_url": "https://gall.dcinside.com/board/lists/?id=realestate&s_type=search_subject_memo&s_keyword={keyword}",
+      "enabled": false
     },
     {
       "id": "policy",
@@ -30,29 +38,13 @@
       "gallery_id": "policy",
       "url": "https://gall.dcinside.com/board/lists/?id=policy",
       "search_url": "https://gall.dcinside.com/board/lists/?id=policy&s_type=search_subject_memo&s_keyword={keyword}",
-      "enabled": true
-    },
-    {
-      "id": "apartment",
-      "name": "아파트",
-      "gallery_id": "apartment",
-      "url": "https://gall.dcinside.com/board/lists/?id=apartment",
-      "search_url": "https://gall.dcinside.com/board/lists/?id=apartment&s_type=search_subject_memo&s_keyword={keyword}",
-      "enabled": true
-    },
-    {
-      "id": "house",
-      "name": "주택",
-      "gallery_id": "house",
-      "url": "https://gall.dcinside.com/board/lists/?id=house",
-      "search_url": "https://gall.dcinside.com/board/lists/?id=house&s_type=search_subject_memo&s_keyword={keyword}",
       "enabled": false
     }
   ],
   "settings": {
-    "max_pages_per_gallery": 5,
-    "max_posts_per_gallery": 50,
-    "request_delay_ms": 1500,
-    "user_agent": "Mozilla/5.0 (compatible; HF-Monitor/1.0; +https://github.com/hf-monitor)"
+    "max_pages_per_gallery": 3,
+    "max_posts_per_gallery": 30,
+    "request_delay_ms": 600,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
   }
 }
